@@ -179,10 +179,17 @@ export default function App() {
   const [legalContent, setLegalContent] = useState("");
 
   // Installer simulation state
-  const [targetPlatform, setTargetPlatform] = useState<"windows" | "linux">("windows");
+  const [targetPlatform, setTargetPlatform] = useState<"windows" | "linux" | "macos">("macos");
   const [installerStatus, setInstallerStatus] = useState<"idle" | "building" | "completed">("idle");
   const [installerProgress, setInstallerProgress] = useState(0);
   const [generatedChecksum, setGeneratedChecksum] = useState("");
+  const [buildLogs, setBuildLogs] = useState<string[]>([]);
+
+  // macOS specific packaging configs
+  const [macFormat, setMacFormat] = useState<"dmg" | "app" | "pkg">("dmg");
+  const [macArch, setMacArch] = useState<"m_series" | "universal" | "intel">("m_series");
+  const [macAccel, setMacAccel] = useState<"metal" | "cpu">("metal");
+  const [macSigning, setMacSigning] = useState<"notarized" | "ad_hoc">("notarized");
 
   // Speech simulation state
   const [isListening, setIsListening] = useState(false);
@@ -216,7 +223,7 @@ export default function App() {
       {
         id: "wel_1",
         role: "assistant",
-        content: `### 👋 Welcome to QEVRYN v0.1 Desktop\n\nQEVRYN is an **offline-first intelligence layer and local operating system** for Windows & Linux desktops.\n\n* **Branding**: Built by Veeomdecoders\n* **Current Mode**: \`Local (Fully Offline)\`\n* **Status**: 🟢 Safe and private. Your files stay on your system.\n\nSelect standard tabs on the right to scan hardware, index document repos, run sandboxed coding terminal tasks, or configure your local memories.`,
+        content: `### 👋 Welcome to QEVRYN v0.1 Desktop\n\nQEVRYN is an **offline-first intelligence layer and local operating system** for macOS, Windows, & Linux desktops.\n\n* **Branding**: Built by Veeomdecoders\n* **Current Mode**: \`Local (Fully Offline)\`\n* **Status**: 🟢 Safe and private. Your files stay on your system.\n\nSelect standard modules on the left to scan hardware, index document repos, run sandboxed coding terminal tasks, or configure your local memories.`,
         timestamp: new Date().toLocaleTimeString(),
         core: "QEVRYN Core Orchestrator",
       }
@@ -531,20 +538,74 @@ export default function App() {
   // Simulating the compilation of installable packages
   const handleSimulateInstallerBuild = () => {
     setInstallerStatus("building");
-    setInstallerProgress(10);
+    setInstallerProgress(0);
+    setBuildLogs([]);
     
+    let currentProgress = 0;
+    const logsMap: Record<number, string> = {
+      10: targetPlatform === "macos" 
+        ? "➜ Initializing Xcode command line tools for macOS (arm64)..." 
+        : targetPlatform === "windows"
+        ? "➜ Initializing MSVC compilation environment (cl.exe)..."
+        : "➜ Setting up GCC build toolchain...",
+      25: targetPlatform === "macos"
+        ? "➜ Compiling source modules with clang -arch arm64 -O3..."
+        : targetPlatform === "windows"
+        ? "➜ Compiling source modules with cl.exe /O2 /MD..."
+        : "➜ Compiling source files with gcc -O2 -fPIC...",
+      40: targetPlatform === "macos"
+        ? "➜ Linking Apple Metal (MPS) and Accelerate frameworks..."
+        : targetPlatform === "windows"
+        ? "➜ Linking DirectML, WinML, and DirectX 12 frameworks..."
+        : "➜ Linking Vulkan runtime and open-source GPU libraries...",
+      60: targetPlatform === "macos"
+        ? `➜ Constructing QEVRYN.app bundle (${macArch === "m_series" ? "Apple Silicon" : macArch === "universal" ? "Universal Binary" : "Intel"}) and indexing local weights...`
+        : targetPlatform === "windows"
+        ? "➜ Bundling executable assets and embedding application manifest..."
+        : "➜ Structuring AppDir framework and local resources...",
+      75: targetPlatform === "macos"
+        ? `➜ Code signing bundle using ${macSigning === "notarized" ? "Apple Developer ID & Notarization Ticket" : "Ad-Hoc Certificate"}...`
+        : targetPlatform === "windows"
+        ? "➜ Code signing executable package with security certificate..."
+        : "➜ Assembling AppImage format structure...",
+      90: targetPlatform === "macos"
+        ? `➜ Packing high-compression QEVRYN_v0.1_M5_Air.${macFormat}...`
+        : targetPlatform === "windows"
+        ? "➜ Generating self-contained qevryn_v0.1_setup.exe installer..."
+        : "➜ Running appimagetool compiler to compress AppImage binary...",
+      100: targetPlatform === "macos"
+        ? `✔ Apple Gatekeeper ${macSigning === "notarized" ? "Notarization" : "Signing"} successful. ${macFormat.toUpperCase()} package ready for offline execution!`
+        : targetPlatform === "windows"
+        ? "✔ Windows setup compiler finished. Package ready for installation!"
+        : "✔ Linux AppImage compilation complete. Package ready for execution!"
+    };
+
     const interval = setInterval(() => {
-      setInstallerProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setInstallerStatus("completed");
-          setGeneratedChecksum(
-            "sha256_" + Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join("")
-          );
-          return 100;
-        }
-        return prev + 15;
-      });
+      currentProgress += 10;
+      if (currentProgress >= 100) {
+        currentProgress = 100;
+        clearInterval(interval);
+        setInstallerStatus("completed");
+        setGeneratedChecksum(
+          "sha256_" + Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join("")
+        );
+      }
+      setInstallerProgress(currentProgress);
+      
+      const closestLogKey = Object.keys(logsMap)
+        .map(Number)
+        .filter(k => k <= currentProgress)
+        .sort((a, b) => b - a)[0];
+        
+      if (closestLogKey && logsMap[closestLogKey]) {
+        const logText = logsMap[closestLogKey];
+        setBuildLogs(prev => {
+          if (!prev.includes(logText)) {
+            return [...prev, logText];
+          }
+          return prev;
+        });
+      }
     }, 400);
   };
 
@@ -680,289 +741,320 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  const handleNewChat = () => {
+    setMessages([
+      {
+        id: "wel_1",
+        role: "assistant",
+        content: `### 👋 Welcome to QEVRYN v0.1 Desktop\n\nQEVRYN is an **offline-first intelligence layer and local operating system** for macOS, Windows, & Linux desktops.\n\n* **Branding**: Built by Veeomdecoders\n* **Current Mode**: \`Local (Fully Offline)\`\n* **Status**: 🟢 Safe and private. Your files stay on your system.\n\nSelect standard modules on the left to scan hardware, index document repos, run sandboxed coding terminal tasks, or configure your local memories.`,
+        timestamp: new Date().toLocaleTimeString(),
+        core: "QEVRYN Core Orchestrator",
+      }
+    ]);
+    setInputMessage("");
+    setUploadedImage(null);
+  };
+
   // Budget calculations
   const budgetPercentage = Math.min(100, Math.max(0, (cloudSpendEst / cloudBudgetLimit) * 100));
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#f0f0f0] font-sans flex flex-col antialiased border-8 border-[#111]">
-      {/* Premium Desktop Header with Veeomdecoders credits */}
-      <header className="border-b border-[#222] bg-[#0c0c0c]/90 backdrop-blur px-6 py-3.5 flex items-center justify-between shadow-md">
-        <div className="flex items-center space-x-3">
-          <div className="h-9 w-9 bg-[#e2ff00] rounded-lg flex items-center justify-center shadow-[0_0_8px_#e2ff00]">
-            <span className="font-display font-bold text-xl text-black">Q</span>
-          </div>
-          <div>
-            <h1 className="text-lg font-display font-bold tracking-tight text-[#f0f0f0]">
-              QEVRYN <span className="text-xs font-mono font-bold text-[#e2ff00] bg-[#e2ff00]/10 px-2.5 py-0.5 rounded-full border border-[#e2ff00]/20">v0.1 Desktop MVP</span>
-            </h1>
-            <p className="text-xs text-[#666] font-bold uppercase tracking-wider">
-              Built by <span className="font-semibold text-[#999]">Veeomdecoders</span>
-            </p>
-          </div>
-        </div>
-
-        {/* Global state gauges */}
-        <div className="hidden lg:flex items-center space-x-6 text-xs font-mono">
-          <div className="flex items-center space-x-2 bg-[#0c0c0c] px-3 py-1.5 rounded-md border border-[#222]">
-            <span className="w-2 h-2 rounded-full bg-[#e2ff00] shadow-[0_0_8px_#e2ff00] animate-pulse"></span>
-            <span className="text-[#999]">Mode:</span>
-            <span className="capitalize font-bold text-[#f0f0f0]">{mode} First</span>
-          </div>
-
-          <div className="flex items-center space-x-2 bg-[#0c0c0c] px-3 py-1.5 rounded-md border border-[#222]">
-            <Cpu className="h-4.5 w-4.5 text-[#e2ff00]" />
-            <span className="text-[#999]">GPU Acceleration:</span>
-            <span className="font-bold text-[#e2ff00]">DirectML/CUDA</span>
-          </div>
-
-          <div className="flex items-center space-x-2 bg-[#0c0c0c] px-3 py-1.5 rounded-md border border-[#222]">
-            <DollarSign className="h-4 w-4 text-emerald-400" />
-            <span className="text-[#999]">AWS Credit (ap-south-1):</span>
-            <span className="font-bold text-[#f0f0f0]">${(cloudBudgetLimit - cloudSpendEst).toFixed(4)}</span>
-          </div>
-        </div>
-
-        {/* Action controls */}
-        <div className="flex items-center space-x-3">
-          <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as any)}
-            className="bg-[#0c0c0c] hover:bg-[#181818] text-xs font-medium text-[#f0f0f0] border border-[#222] px-3 py-1.5 rounded-md outline-none cursor-pointer"
-          >
-            <option value="local">🟢 Local (Offline-First)</option>
-            <option value="hybrid">🌗 Hybrid Mode</option>
-            <option value="online">🌐 Online (Web Grounded)</option>
-          </select>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-[#070708] text-[#f0f0f0] font-sans flex flex-col antialiased">
       {/* Main Workspace Frame */}
       <main className="flex-1 flex overflow-hidden">
         {/* Left Control Sidebar */}
-        <div className={`bg-[#0c0c0c] border-r border-[#222] flex flex-col p-5 space-y-6 overflow-y-auto shrink-0 transition-all duration-300 ${sidebarOpen ? "w-80" : "w-0 p-0 overflow-hidden border-none"}`}>
-          
-          {/* Active Cores Watcher */}
-          <div>
-            <h3 className="text-[10px] tracking-[0.25em] text-[#666] uppercase font-bold mb-3 flex items-center space-x-1.5">
-              <Activity className="h-4 w-4 text-[#e2ff00]" />
-              <span>QEVRYN Core Orchestrator</span>
-            </h3>
-            <div className="space-y-2 text-xs font-mono">
-              <div className="bg-[#050505] p-2.5 rounded border border-[#222] flex items-center justify-between">
-                <span className="text-slate-400">Reasoning Core</span>
-                <span className="text-[#e2ff00] text-[10px] bg-[#e2ff00]/10 px-1.5 py-0.5 rounded uppercase font-bold">Optimized</span>
+        {sidebarOpen && (
+          <div className="w-80 bg-[#0c0c0e] border-r border-zinc-800/80 flex flex-col p-4.5 space-y-5 shrink-0 overflow-y-auto">
+            
+            {/* Header / Branding */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="h-7 w-7 bg-[#e2ff00] rounded-lg flex items-center justify-center shadow-[0_0_10px_rgba(226,255,0,0.35)]">
+                  <span className="font-display font-bold text-base text-black">Q</span>
+                </div>
+                <div>
+                  <h1 className="text-sm font-bold tracking-tight text-white font-display">QEVRYN</h1>
+                  <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Veeomdecoders</p>
+                </div>
               </div>
-              <div className="bg-[#050505] p-2.5 rounded border border-[#222] flex items-center justify-between">
-                <span className="text-slate-400">Coding Core</span>
-                <span className="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded uppercase">Standby</span>
-              </div>
-              <div className="bg-[#050505] p-2.5 rounded border border-[#222] flex items-center justify-between">
-                <span className="text-slate-400">Medical Core</span>
-                <span className="text-rose-400 text-[10px] bg-rose-500/10 px-1.5 py-0.5 rounded uppercase">Guarded</span>
-              </div>
-              <div className="bg-[#050505] p-2.5 rounded border border-[#222] flex items-center justify-between">
-                <span className="text-slate-400">Law / Legal Core</span>
-                <span className="text-purple-400 text-[10px] bg-purple-500/10 px-1.5 py-0.5 rounded uppercase">Indexed</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Hardware Profile Selection */}
-          <div>
-            <h3 className="text-[10px] tracking-[0.25em] text-[#666] uppercase font-bold mb-3 flex items-center space-x-1.5">
-              <Cpu className="h-4 w-4 text-[#e2ff00]" />
-              <span>Performance Profile</span>
-            </h3>
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
               <button
-                onClick={() => setPerfMode("battery")}
-                className={`p-2 rounded border text-left transition-all ${perfMode === "battery" ? "bg-amber-500/10 border-amber-500/50 text-amber-300" : "bg-[#050505] border-[#222] hover:border-[#333] text-slate-400"}`}
+                onClick={() => setSidebarOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-zinc-850 text-zinc-500 hover:text-white transition-colors border border-transparent hover:border-zinc-800 cursor-pointer"
+                title="Collapse sidebar"
               >
-                <span className="block font-bold">Battery Saver</span>
-                <span className="text-[10px] opacity-80">Limits RAM/Th</span>
-              </button>
-              <button
-                onClick={() => setPerfMode("balanced")}
-                className={`p-2 rounded border text-left transition-all ${perfMode === "balanced" ? "bg-[#e2ff00]/10 border-[#e2ff00]/50 text-[#e2ff00]" : "bg-[#050505] border-[#222] hover:border-[#333] text-slate-400"}`}
-              >
-                <span className="block font-bold">Balanced</span>
-                <span className="text-[10px] opacity-80">Default load</span>
-              </button>
-              <button
-                onClick={() => setPerfMode("performance")}
-                className={`p-2 rounded border text-left transition-all ${perfMode === "performance" ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-300" : "bg-[#050505] border-[#222] hover:border-[#333] text-slate-400"}`}
-              >
-                <span className="block font-bold">Performance</span>
-                <span className="text-[10px] opacity-80">GPU active</span>
-              </button>
-              <button
-                onClick={() => setPerfMode("max")}
-                className={`p-2 rounded border text-left transition-all ${perfMode === "max" ? "bg-purple-500/10 border-purple-500/50 text-purple-300" : "bg-[#050505] border-[#222] hover:border-[#333] text-slate-400"}`}
-              >
-                <span className="block font-bold">Max Local AI</span>
-                <span className="text-[10px] opacity-80">Unlocks 16T</span>
+                <ChevronLeft className="h-4 w-4" />
               </button>
             </div>
-          </div>
 
-          {/* Model Selection abstraction */}
-          <div>
-            <h3 className="text-[10px] tracking-[0.25em] text-[#666] uppercase font-bold mb-2">Inference Model</h3>
-            <select
-              value={activeModel}
-              onChange={(e) => setActiveModel(e.target.value)}
-              className="w-full bg-[#050505] border border-[#222] px-3 py-2 rounded text-xs font-mono text-slate-300 focus:border-[#e2ff00] focus:outline-none cursor-pointer"
+            {/* New Chat Button */}
+            <button
+              onClick={handleNewChat}
+              className="w-full py-2.5 px-3.5 rounded-lg bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold flex items-center justify-center space-x-2 transition-all text-zinc-200 cursor-pointer"
             >
-              <option value="Llama-3-8B-Instruct (Local)">Meta Llama 3 8B (Local Q4_K_M)</option>
-              <option value="Gemma-2-9B (Local)">Google Gemma 2 9B (Local FP16)</option>
-              <option value="Mistral-7B-v0.3 (Local)">Mistral 7B (Local Q8_0)</option>
-              <option value="gemini-3.5-flash">Google Gemini 3.5 Flash (Cloud)</option>
-            </select>
-            <span className="text-[10px] text-slate-500 mt-1 block">Requires manual model weight downloads in Local mode.</span>
-          </div>
+              <Plus className="h-4 w-4 text-[#e2ff00]" />
+              <span>New Chat</span>
+            </button>
 
-          {/* ap-south-1 Credit limits */}
-          <div className="bg-[#050505] p-4 rounded-lg border border-[#222] space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400 font-medium">AWS Credit Guard</span>
-              <span className="text-[10px] bg-[#e2ff00]/10 text-[#e2ff00] px-1.5 py-0.5 rounded font-mono border border-[#e2ff00]/20">ap-south-1</span>
+            {/* Navigation Modules */}
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 px-2 block mb-2">Modules</span>
+              
+              <button
+                onClick={() => setActiveTab("workspace")}
+                className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-3 cursor-pointer ${activeTab === "workspace" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"}`}
+              >
+                <Plus className="h-4 w-4 text-[#e2ff00] rotate-45" />
+                <span>Chat Workspace</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("sandbox")}
+                className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-3 cursor-pointer ${activeTab === "sandbox" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"}`}
+              >
+                <Terminal className="h-4 w-4 text-sky-400" />
+                <span>Coding Sandbox</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("rag")}
+                className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-3 cursor-pointer ${activeTab === "rag" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"}`}
+              >
+                <Database className="h-4 w-4 text-emerald-400" />
+                <span>Local RAG Store</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("memory")}
+                className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-3 cursor-pointer ${activeTab === "memory" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"}`}
+              >
+                <BookOpen className="h-4 w-4 text-amber-400" />
+                <span>Personal Memory</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("logs")}
+                className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-3 cursor-pointer ${activeTab === "logs" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"}`}
+              >
+                <Shield className="h-4 w-4 text-indigo-400" />
+                <span>Security Audit Logs</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("legal")}
+                className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-3 cursor-pointer ${activeTab === "legal" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"}`}
+              >
+                <FileText className="h-4 w-4 text-rose-400" />
+                <span>Trust Center (Legal)</span>
+              </button>
             </div>
-            <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
-              <div className="bg-[#e2ff00] h-full transition-all duration-300" style={{ width: `${budgetPercentage}%` }}></div>
-            </div>
-            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-              <span>Spend: ${(cloudSpendEst).toFixed(5)}</span>
-              <span>Buffer Limit: ${cloudBudgetLimit}</span>
-            </div>
-            <p className="text-[10px] text-[#666]">
-              Guarantees zero out-of-pocket costs by restricting expensive cloud triggers once budget is exhausted.
-            </p>
-          </div>
 
-          {/* Privacy Toggle / Telemetry */}
-          <div className="space-y-3 border-t border-[#222] pt-4">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-300 font-medium">Diagnostic Telemetry</span>
+            {/* Diagnostic Telemetry simple line */}
+            <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-xs px-1">
+              <span className="text-zinc-500 font-semibold text-[11px]">Private Local Logs</span>
               <input
                 type="checkbox"
                 checked={telemetry}
                 onChange={(e) => setTelemetry(e.target.checked)}
-                className="h-4 w-4 bg-[#050505] border-[#222] rounded focus:ring-0 cursor-pointer accent-[#e2ff00]"
+                className="h-3.5 w-3.5 rounded bg-zinc-900 border-zinc-800 text-[#e2ff00] focus:ring-0 cursor-pointer accent-[#e2ff00]"
               />
             </div>
-            <p className="text-[10px] text-[#666]">
-              When disabled, absolutely no system statistics or diagnostics are compiled outside your device.
-            </p>
-          </div>
 
-          {/* Quick build Windows/Linux executable packages */}
-          <div className="border-t border-[#222] pt-4 space-y-3">
-            <span className="text-[10px] tracking-[0.25em] text-[#666] uppercase font-bold block">Package Builder Simulation</span>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setTargetPlatform("windows")}
-                className={`flex-1 py-1 px-2.5 rounded text-xs font-mono transition-colors ${targetPlatform === "windows" ? "bg-[#e2ff00] text-black font-bold" : "bg-[#050505] text-slate-400 border border-[#222]"}`}
-              >
-                Windows .exe
-              </button>
-              <button
-                onClick={() => setTargetPlatform("linux")}
-                className={`flex-1 py-1 px-2.5 rounded text-xs font-mono transition-colors ${targetPlatform === "linux" ? "bg-[#e2ff00] text-black font-bold" : "bg-[#050505] text-slate-400 border border-[#222]"}`}
-              >
-                Linux AppImage
-              </button>
-            </div>
-            {installerStatus === "idle" && (
-              <button
-                onClick={handleSimulateInstallerBuild}
-                className="w-full bg-[#111] hover:bg-[#181818] text-[#f0f0f0] text-xs py-2 rounded border border-[#222] flex items-center justify-center space-x-1.5 transition-colors"
-              >
-                <Download className="h-4.5 w-4.5 text-[#e2ff00]" />
-                <span>Build Installer</span>
-              </button>
-            )}
-            {installerStatus === "building" && (
-              <div className="space-y-2">
-                <div className="w-full bg-[#050505] rounded h-1.5 overflow-hidden">
-                  <div className="bg-[#e2ff00] h-full transition-all duration-300" style={{ width: `${installerProgress}%` }}></div>
-                </div>
-                <span className="text-[10px] text-slate-400 font-mono block text-center">Compiling workspace binaries... {installerProgress}%</span>
-              </div>
-            )}
-            {installerStatus === "completed" && (
-              <div className="bg-[#050505] p-2.5 rounded border border-[#222] space-y-1.5 text-[10px] font-mono">
-                <div className="flex items-center text-[#e2ff00] space-x-1">
-                  <Check className="h-3.5 w-3.5" />
-                  <span className="font-bold">Build Succeeded</span>
-                </div>
-                <span className="text-slate-400 block truncate">File: qevryn_v0.1_installer.{targetPlatform === "windows" ? "exe" : "AppImage"}</span>
-                <span className="text-[9px] text-slate-500 block truncate">SHA-256: {generatedChecksum}</span>
+            {/* Package Builder Widget Section */}
+            <div className="border-t border-zinc-800/60 pt-3 flex-1 flex flex-col justify-end">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 px-1 block mb-3">Package Builder</span>
+              
+              <div className="grid grid-cols-3 gap-1 px-1 mb-3">
                 <button
-                  onClick={() => setInstallerStatus("idle")}
-                  className="text-[#e2ff00] hover:underline block text-left"
+                  onClick={() => { setTargetPlatform("macos"); setInstallerStatus("idle"); }}
+                  className={`py-1 px-1.5 rounded text-[10px] font-bold text-center transition-all cursor-pointer ${targetPlatform === "macos" ? "bg-[#e2ff00] text-black" : "bg-zinc-900 text-zinc-400 border border-zinc-850 hover:text-zinc-200"}`}
                 >
-                  Create another package
+                  macOS
+                </button>
+                <button
+                  onClick={() => { setTargetPlatform("windows"); setInstallerStatus("idle"); }}
+                  className={`py-1 px-1.5 rounded text-[10px] font-bold text-center transition-all cursor-pointer ${targetPlatform === "windows" ? "bg-[#e2ff00] text-black" : "bg-zinc-900 text-zinc-400 border border-zinc-850 hover:text-zinc-200"}`}
+                >
+                  Windows
+                </button>
+                <button
+                  onClick={() => { setTargetPlatform("linux"); setInstallerStatus("idle"); }}
+                  className={`py-1 px-1.5 rounded text-[10px] font-bold text-center transition-all cursor-pointer ${targetPlatform === "linux" ? "bg-[#e2ff00] text-black" : "bg-zinc-900 text-zinc-400 border border-zinc-850 hover:text-zinc-200"}`}
+                >
+                  Linux
                 </button>
               </div>
-            )}
-          </div>
 
-        </div>
+              {targetPlatform === "macos" ? (
+                /* DISTINCT TRANSLUCENT MACOS APP WINDOW BUILDER DESIGN */
+                <div className="rounded-xl bg-zinc-950/75 border border-zinc-800 p-3 shadow-2xl relative overflow-hidden backdrop-blur-md">
+                  {/* Traffic light window controls */}
+                  <div className="flex items-center space-x-1.5 mb-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56] shadow-[0_0_6px_rgba(255,95,86,0.3)]"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e] shadow-[0_0_6px_rgba(255,189,46,0.3)]"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f] shadow-[0_0_6px_rgba(39,201,63,0.3)]"></span>
+                    <span className="text-[8.5px] font-mono text-zinc-400 ml-1.5 font-bold tracking-tight">M5 Air Builder (.dmg)</span>
+                  </div>
+
+                  <div className="space-y-2.5 mt-2">
+                    <div>
+                      <label className="text-[9px] text-zinc-400 block mb-1 font-bold">Hardware Target</label>
+                      <select
+                        value={macArch}
+                        onChange={(e) => setMacArch(e.target.value as any)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[9.5px] text-zinc-200 outline-none cursor-pointer hover:border-zinc-750"
+                      >
+                        <option value="m_series">Apple Silicon M5 (Optimized ARM64)</option>
+                        <option value="universal">Universal Binary (ARM64 + Intel)</option>
+                        <option value="intel">Legacy Intel (x86_64)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] text-zinc-400 block mb-1 font-bold">Distribution Bundle</label>
+                      <select
+                        value={macFormat}
+                        onChange={(e) => setMacFormat(e.target.value as any)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[9.5px] text-zinc-200 outline-none cursor-pointer hover:border-zinc-750"
+                      >
+                        <option value="dmg">Disk Image (.dmg)</option>
+                        <option value="app">App Bundle (.app)</option>
+                        <option value="pkg">Installer Package (.pkg)</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[9px] text-zinc-400 border-t border-zinc-800/50 pt-2 pb-0.5">
+                      <span>Neural Engine Cores:</span>
+                      <span className="text-[#e2ff00] font-mono font-bold uppercase">MPS Accelerated</span>
+                    </div>
+
+                    {installerStatus === "idle" && (
+                      <button
+                        onClick={handleSimulateInstallerBuild}
+                        className="w-full bg-white text-black hover:bg-zinc-200 text-[10px] font-extrabold py-2 rounded-lg transition-all mt-2.5 flex items-center justify-center space-x-1.5 cursor-pointer shadow-md"
+                      >
+                        <Download className="h-3 w-3 text-black" />
+                        <span>Build dmg for M5 Air</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {installerStatus === "building" && (
+                    <div className="space-y-2 mt-3">
+                      <div className="w-full bg-zinc-900 rounded-full h-1 overflow-hidden">
+                        <div className="bg-[#e2ff00] h-full transition-all duration-300" style={{ width: `${installerProgress}%` }}></div>
+                      </div>
+                      <span className="text-[9px] text-zinc-300 font-mono block text-center font-semibold">Compiling workspace... {installerProgress}%</span>
+                    </div>
+                  )}
+
+                  {installerStatus === "completed" && (
+                    <div className="mt-3 pt-3 border-t border-zinc-800/80 space-y-2 text-[9.5px] font-mono">
+                      <div className="text-emerald-400 flex items-center space-x-1">
+                        <Check className="h-3.5 w-3.5" />
+                        <span className="font-extrabold uppercase tracking-wide">Build Succeeded</span>
+                      </div>
+                      <span className="text-zinc-200 block truncate font-semibold">qevryn_v0.1_M5_Air.{macFormat}</span>
+                      <span className="text-[8px] text-zinc-500 block truncate">SHA256: {generatedChecksum.substring(0, 18)}...</span>
+                      <button
+                        onClick={() => setInstallerStatus("idle")}
+                        className="text-[#e2ff00] hover:underline block text-[9.5px] font-bold"
+                      >
+                        Build another package
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* STANDARD WINDOWS / LINUX STYLING */
+                <div className="rounded-lg bg-zinc-900/60 border border-zinc-800 p-3 space-y-3">
+                  <span className="text-[9px] font-mono text-zinc-500 block">Target: {targetPlatform === "windows" ? "Windows Setup" : "Linux AppImage"}</span>
+                  
+                  {installerStatus === "idle" && (
+                    <button
+                      onClick={handleSimulateInstallerBuild}
+                      className="w-full bg-zinc-800 hover:bg-zinc-750 text-white text-[10px] py-1.5 rounded border border-zinc-750 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer font-bold"
+                    >
+                      <Download className="h-3.5 w-3.5 text-[#e2ff00]" />
+                      <span>Compile Package</span>
+                    </button>
+                  )}
+
+                  {installerStatus === "building" && (
+                    <div className="space-y-1.5">
+                      <div className="w-full bg-zinc-950 rounded h-1 overflow-hidden">
+                        <div className="bg-[#e2ff00] h-full transition-all duration-300" style={{ width: `${installerProgress}%` }}></div>
+                      </div>
+                      <span className="text-[9px] text-zinc-400 font-mono block text-center font-semibold">Assembling binaries... {installerProgress}%</span>
+                    </div>
+                  )}
+
+                  {installerStatus === "completed" && (
+                    <div className="space-y-1.5 text-[9px] font-mono">
+                      <div className="flex items-center text-[#e2ff00] space-x-1">
+                        <Check className="h-3 w-3" />
+                        <span className="font-bold">Succeeded</span>
+                      </div>
+                      <span className="text-zinc-400 block truncate font-semibold">qevryn_v0.1_installer.{targetPlatform === "windows" ? "exe" : "AppImage"}</span>
+                      <span className="text-[8px] text-zinc-500 block truncate font-semibold font-mono">SHA-256: {generatedChecksum.substring(0, 18)}...</span>
+                      <button
+                        onClick={() => setInstallerStatus("idle")}
+                        className="text-[#e2ff00] hover:underline block font-bold"
+                      >
+                        Rebuild package
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Console build output logs when compiling */}
+              {installerStatus === "building" && buildLogs.length > 0 && (
+                <div className="mt-2.5 p-2 bg-black border border-zinc-900 rounded font-mono text-[8px] text-zinc-400 max-h-[105px] overflow-y-auto space-y-1">
+                  {buildLogs.map((log, idx) => (
+                    <div key={idx} className="truncate">{log}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Central Workspace Tabbed Area */}
-        <div className="flex-1 flex flex-col bg-[#050505]">
-          
-          {/* Workspace Tabs Navigation */}
-          <div className="border-b border-[#222] bg-[#0c0c0c] px-4 py-2 flex items-center space-x-2">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors mr-2 flex items-center justify-center shrink-0 border border-zinc-800/80"
-              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-            >
-              <Menu className="h-4.5 w-4.5" />
-            </button>
-            <button
-              onClick={() => setActiveTab("workspace")}
-              className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === "workspace" ? "bg-[#181818] text-[#e2ff00] font-bold border-b-2 border-[#e2ff00] rounded-b-none" : "text-[#999] hover:text-[#f0f0f0]"}`}
-            >
-              <Layout className="h-4 w-4" />
-              <span>Workspace</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("sandbox")}
-              className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === "sandbox" ? "bg-[#181818] text-[#e2ff00] font-bold border-b-2 border-[#e2ff00] rounded-b-none" : "text-[#999] hover:text-[#f0f0f0]"}`}
-            >
-              <Terminal className="h-4 w-4" />
-              <span>Coding Sandbox</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("rag")}
-              className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === "rag" ? "bg-[#181818] text-[#e2ff00] font-bold border-b-2 border-[#e2ff00] rounded-b-none" : "text-[#999] hover:text-[#f0f0f0]"}`}
-            >
-              <Database className="h-4 w-4" />
-              <span>Local RAG Store</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("memory")}
-              className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === "memory" ? "bg-[#181818] text-[#e2ff00] font-bold border-b-2 border-[#e2ff00] rounded-b-none" : "text-[#999] hover:text-[#f0f0f0]"}`}
-            >
-              <BookOpen className="h-4 w-4" />
-              <span>Personal Memory</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("logs")}
-              className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === "logs" ? "bg-[#181818] text-[#e2ff00] font-bold border-b-2 border-[#e2ff00] rounded-b-none" : "text-[#999] hover:text-[#f0f0f0]"}`}
-            >
-              <Shield className="h-4 w-4" />
-              <span>Security Logs</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("legal")}
-              className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === "legal" ? "bg-[#181818] text-[#e2ff00] font-bold border-b-2 border-[#e2ff00] rounded-b-none" : "text-[#999] hover:text-[#f0f0f0]"}`}
-            >
-              <FileText className="h-4 w-4" />
-              <span>Trust Center</span>
-            </button>
+        <div className="flex-1 flex flex-col bg-[#070708]">
+          {/* Workspace Top Bar (Sleek, ChatGPT / Claude style) */}
+          <div className="border-b border-zinc-800 bg-[#0c0c0e] px-6 py-3 flex items-center justify-between shadow-sm">
+            <div className="flex items-center space-x-3">
+              {!sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-1.5 rounded-lg hover:bg-zinc-850 text-zinc-400 hover:text-white transition-colors border border-zinc-800 shrink-0 cursor-pointer"
+                  title="Expand sidebar"
+                >
+                  <Menu className="h-4 w-4" />
+                </button>
+              )}
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold text-zinc-200 capitalize font-display">
+                  {activeTab === "workspace" ? "Chat Workspace" : activeTab === "sandbox" ? "Coding Sandbox" : activeTab === "rag" ? "Local RAG Store" : activeTab === "memory" ? "Personal Memory" : activeTab === "logs" ? "Security Logs" : "Trust Center"}
+                </span>
+                <span className="text-[9px] bg-zinc-800/80 px-2 py-0.5 rounded-full font-mono font-semibold text-zinc-400 border border-zinc-700/40">
+                  {mode === "local" ? "🟢 Local First" : mode === "hybrid" ? "🌗 Hybrid" : "🌐 Online"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <span className="text-[10px] font-bold text-zinc-500 font-mono hidden sm:inline uppercase tracking-wider">Built by Veeomdecoders</span>
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value as any)}
+                className="bg-zinc-900 text-xs font-semibold text-zinc-300 border border-zinc-800 px-3 py-1.5 rounded-lg outline-none cursor-pointer hover:border-zinc-750"
+              >
+                <option value="local">🟢 Local First</option>
+                <option value="hybrid">🌗 Hybrid Mode</option>
+                <option value="online">🌐 Online Mode</option>
+              </select>
+            </div>
           </div>
 
           {/* Active Tab Viewport */}

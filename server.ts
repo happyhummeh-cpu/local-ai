@@ -102,18 +102,25 @@ function logSecurityEvent(
 // ----------------------------------------------------
 app.get("/api/hardware", (req, res) => {
   try {
-    const cpuModel = os.cpus()[0]?.model || "Intel/AMD Processor";
+    let cpuModel = os.cpus()[0]?.model || "Intel/AMD Processor";
     const totalMemoryGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
     const freeMemoryGB = Math.round(os.freemem() / (1024 * 1024 * 1024));
-    const platform = os.platform(); // 'win32', 'linux'
+    const platform = os.platform(); // 'win32', 'linux', 'darwin'
     const release = os.release();
     
-    // Scan acceleration pathways (Vulkan, OpenVINO, DirectML, CUDA, ROCm)
+    // Scan acceleration pathways (Vulkan, OpenVINO, DirectML, CUDA, ROCm, Metal)
     // Simulated scan based on CPU & platform traits
     let detectedGPU = "Intel Integrated Graphics (UHD/Xe)";
     let accelerationBackends = ["CPU (AVX2, FMA)"];
+    let displayOS = "Linux (Ubuntu/Debian AMD64)";
     
-    if (platform === "win32") {
+    if (platform === "darwin") {
+      displayOS = "macOS Sequoia (Apple Silicon ARM64)";
+      cpuModel = cpuModel.includes("Apple") ? cpuModel : "Apple M5 (ARM64)";
+      detectedGPU = "Apple M5 Air Integrated GPU (Unified Memory)";
+      accelerationBackends = ["Apple Neural Engine (ANE)", "Metal Performance Shaders (MPS)", "Metal 3"];
+    } else if (platform === "win32") {
+      displayOS = "Windows 11 Home/Pro (64-bit)";
       accelerationBackends.push("DirectML", "WinML");
       detectedGPU = "NVIDIA GeForce RTX 4070 Laptop GPU";
       accelerationBackends.push("CUDA 12.4", "Vulkan (1.3)");
@@ -126,7 +133,7 @@ app.get("/api/hardware", (req, res) => {
     res.json({
       success: true,
       hardware: {
-        os: platform === "win32" ? "Windows 11 Home/Pro (64-bit)" : "Linux (Ubuntu/Debian AMD64)",
+        os: displayOS,
         platform,
         release,
         cpu: cpuModel,
