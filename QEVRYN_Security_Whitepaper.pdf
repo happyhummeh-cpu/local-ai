@@ -1,0 +1,97 @@
+%PDF-1.4
+%QEVRYN Security Whitepaper PDF Edition
+%Publisher: Built by Veeomdecoders
+
+1 0 obj
+<<
+  /Type /Catalog
+  /Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+  /Type /Pages
+  /Kids [3 0 R]
+  /Count 1
+>>
+endobj
+
+3 0 obj
+<<
+  /Type /Page
+  /Parent 2 0 R
+  /Resources <<
+    /Font <<
+      /F1 4 0 R
+    >>
+  >>
+  /MediaBox [0 0 595.275 841.889]
+  /Contents 5 0 R
+>>
+endobj
+
+4 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Helvetica
+>>
+endobj
+
+5 0 obj
+<< /Length 850 >>
+stream
+BT
+/F1 18 Tf
+50 780 Td
+(QEVRYN Cybersecurity Whitepaper) Tj
+0 -30 Td
+/F1 12 Tf
+(Threat Modeling & Cryptographic Isolation | Built by Veeomdecoders) Tj
+0 -40 Td
+(1. Core Local Isolation:) Tj
+0 -15 Td
+(   QEVRYN binds node-servers strictly to local interfaces (127.0.0.1).) Tj
+0 -15 Td
+(   All secret API keys reside strictly inside private operating memory.) Tj
+0 -30 Td
+(2. Coding Sandbox Controls:) Tj
+0 -15 Td
+(   Active regex-based string filters evaluate all proposed shell execution commands.) Tj
+0 -15 Td
+(   Unsafe actions (rm -rf, format, etc.) are blocked immediately.) Tj
+0 -30 Td
+(3. Visual Diff Guards:) Tj
+0 -15 Td
+(   The agent is restricted from making direct file writes without displaying) Tj
+0 -15 Td
+(   a split diff and asking the user for explicit authorization.) Tj
+0 -30 Td
+(4. Checksum Integrity:) Tj
+0 -15 Td
+(   All downloaded model weights and packages are scanned using SHA-256) Tj
+0 -15 Td
+(   checksum matching to guard against supply-chain intercept threats.) Tj
+0 -40 Td
+(Authorized release,) Tj
+0 -20 Td
+(Chief Technology Officer, Veeomdecoders) Tj
+ET
+endstream
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000080 00000 n 
+0000000139 00000 n 
+0000000207 00000 n 
+0000000352 00000 n 
+0000000424 00000 n 
+trailer
+<<
+  /Size 6
+  /Root 1 0 R
+>>
+%%EOF

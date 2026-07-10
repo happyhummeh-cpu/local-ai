@@ -1,0 +1,97 @@
+%PDF-1.4
+%QEVRYN Privacy Policy PDF Edition
+%Publisher: Built by Veeomdecoders
+
+1 0 obj
+<<
+  /Type /Catalog
+  /Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+  /Type /Pages
+  /Kids [3 0 R]
+  /Count 1
+>>
+endobj
+
+3 0 obj
+<<
+  /Type /Page
+  /Parent 2 0 R
+  /Resources <<
+    /Font <<
+      /F1 4 0 R
+    >>
+  >>
+  /MediaBox [0 0 595.275 841.889]
+  /Contents 5 0 R
+>>
+endobj
+
+4 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Helvetica
+>>
+endobj
+
+5 0 obj
+<< /Length 850 >>
+stream
+BT
+/F1 18 Tf
+50 780 Td
+(QEVRYN Privacy Policy) Tj
+0 -30 Td
+/F1 12 Tf
+(Privacy-First Design | Built by Veeomdecoders) Tj
+0 -40 Td
+(1. Privacy Absolute Guarantee:) Tj
+0 -15 Td
+(   Your files, code blocks, chats, notes, and local vector indexes stay) Tj
+0 -15 Td
+(   entirely on your local Windows/Linux hardware. No background syncs exist.) Tj
+0 -30 Td
+(2. Memory Sovereignty:) Tj
+0 -15 Td
+(   All personalized memories are saved locally. You have the complete right to) Tj
+0 -15 Td
+(   inspect, modify, export, or completely wipe all memories at any time.) Tj
+0 -30 Td
+(3. External Connections:) Tj
+0 -15 Td
+(   Online and Hybrid Cores route context packets to Gemini/AWS only after you) Tj
+0 -15 Td
+(   give explicit permission. Prompt values are protected from public training.) Tj
+0 -30 Td
+(4. Telemetry Opt-Out:) Tj
+0 -15 Td
+(   Telemetry is deactivated by default. If enabled, it only transfers) Tj
+0 -15 Td
+(   anonymous hardware metrics, never raw prompt inputs or private file paths.) Tj
+0 -40 Td
+(Verified secure,) Tj
+0 -20 Td
+(Veeomdecoders Security Team) Tj
+ET
+endstream
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000075 00000 n 
+0000000134 00000 n 
+0000000202 00000 n 
+0000000347 00000 n 
+0000000419 00000 n 
+trailer
+<<
+  /Size 6
+  /Root 1 0 R
+>>
+%%EOF

@@ -1,0 +1,91 @@
+%PDF-1.4
+%QEVRYN Responsible AI Policy PDF Edition
+%Publisher: Built by Veeomdecoders
+
+1 0 obj
+<<
+  /Type /Catalog
+  /Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+  /Type /Pages
+  /Kids [3 0 R]
+  /Count 1
+>>
+endobj
+
+3 0 obj
+<<
+  /Type /Page
+  /Parent 2 0 R
+  /Resources <<
+    /Font <<
+      /F1 4 0 R
+    >>
+  >>
+  /MediaBox [0 0 595.275 841.889]
+  /Contents 5 0 R
+>>
+endobj
+
+4 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Helvetica
+>>
+endobj
+
+5 0 obj
+<< /Length 850 >>
+stream
+BT
+/F1 18 Tf
+50 780 Td
+(QEVRYN Responsible AI Policy) Tj
+0 -30 Td
+/F1 12 Tf
+(Ethical Deployment Framework | Built by Veeomdecoders) Tj
+0 -40 Td
+(1. Purposeful Design Boundaries:) Tj
+0 -15 Td
+(   QEVRYN is crafted as a productivity accelerator. We prohibit its use for) Tj
+0 -15 Td
+(   cyberattack engineering, deepfake propagation, or systemic fraud campaigns.) Tj
+0 -30 Td
+(2. Human-In-The-Loop (HITL):) Tj
+0 -15 Td
+(   No mission-critical software deployment, medical dosage structure, or legal filing) Tj
+0 -15 Td
+(   should be completely automated. A human operator must verify all outputs.) Tj
+0 -30 Td
+(3. Structural Transparency:) Tj
+0 -15 Td
+(   Answers indicate precisely which model and routing core generated the output.) Tj
+0 -15 Td
+(   Grounded references are cited dynamically to avoid hallucination confusion.) Tj
+0 -40 Td
+(Cooperating for safety,) Tj
+0 -20 Td
+(Veeomdecoders Compliance Council) Tj
+ET
+endstream
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000080 00000 n 
+0000000139 00000 n 
+0000000207 00000 n 
+0000000352 00000 n 
+0000000424 00000 n 
+trailer
+<<
+  /Size 6
+  /Root 1 0 R
+>>
+%%EOF

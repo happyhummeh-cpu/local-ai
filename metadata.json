@@ -1,0 +1,6 @@
+{
+  "name": "QEVRYN",
+  "description": "A premium local-first AI intelligence layer and operating system for Windows and Linux desktops.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,97 @@
+%PDF-1.4
+%QEVRYN Terms of Service PDF Edition
+%Publisher: Built by Veeomdecoders
+
+1 0 obj
+<<
+  /Type /Catalog
+  /Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+  /Type /Pages
+  /Kids [3 0 R]
+  /Count 1
+>>
+endobj
+
+3 0 obj
+<<
+  /Type /Page
+  /Parent 2 0 R
+  /Resources <<
+    /Font <<
+      /F1 4 0 R
+    >>
+  >>
+  /MediaBox [0 0 595.275 841.889]
+  /Contents 5 0 R
+>>
+endobj
+
+4 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Helvetica
+>>
+endobj
+
+5 0 obj
+<< /Length 850 >>
+stream
+BT
+/F1 18 Tf
+50 780 Td
+(QEVRYN Terms of Service) Tj
+0 -30 Td
+/F1 12 Tf
+(Version: 0.1-Beta | Built by Veeomdecoders) Tj
+0 -40 Td
+(1. Local-First Design:) Tj
+0 -15 Td
+(   All user chats, notes, memories, and documents are kept exclusively) Tj
+0 -15 Td
+(   on the user's local Windows or Linux desktop machine. No data is shared.) Tj
+0 -30 Td
+(2. Consent-Based Downloads:) Tj
+0 -15 Td
+(   The system will never silently download massive model weights or indexes.) Tj
+0 -15 Td
+(   Every large package requires direct, explicit user approval.) Tj
+0 -30 Td
+(3. Cores and Safety Limits:) Tj
+0 -15 Td
+(   - Medical Information Core provides educational summaries only, not medical diagnosis.) Tj
+0 -15 Td
+(   - Legal Information Core outlines general regulatory frameworks, not representation.) Tj
+0 -30 Td
+(4. Cloud Cost Management:) Tj
+0 -15 Td
+(   Cloud endpoints are off by default. Out-of-pocket costs are targeted to zero) Tj
+0 -15 Td
+(   via strict budget guardrails and AWS ap-south-1 Mumbai credit parameters.) Tj
+0 -40 Td
+(Signed,) Tj
+0 -20 Td
+(The Veeomdecoders Development Team) Tj
+ET
+endstream
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000074 00000 n 
+0000000133 00000 n 
+0000000201 00000 n 
+0000000346 00000 n 
+0000000418 00000 n 
+trailer
+<<
+  /Size 6
+  /Root 1 0 R
+>>
+%%EOF
