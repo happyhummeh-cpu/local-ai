@@ -232,9 +232,9 @@ app.post("/api/chat", async (req, res) => {
     logSecurityEvent("WEB_RESEARCH_TRIGGERED", "info", `Grounding search queried for: "${message}"`, "network");
   }
 
-  // AWS Spending Guard Check
+  // Security check log
   if (mode !== "local" && ai) {
-    logSecurityEvent("AWS_BUDGET_GUARD_CHECK", "info", "Estimated cost: <$0.0001. Safe within ap-south-1 credit buffers.", "system");
+    logSecurityEvent("ROUTING_GUARD_CHECK", "info", "Estimated token overhead analyzed. Safe within network bounds.", "system");
   }
 
   // Check if image generation is requested

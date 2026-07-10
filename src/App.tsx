@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend
+} from "recharts";
+import {
   Shield,
   Activity,
   Cpu,
@@ -133,19 +143,31 @@ Technical details on our strict security boundaries:
 
 export default function App() {
   // Application State
-  const [activeTab, setActiveTab] = useState<"workspace" | "sandbox" | "rag" | "memory" | "logs" | "legal">("workspace");
+  const [activeTab, setActiveTab] = useState<"workspace" | "sandbox" | "rag" | "memory" | "logs" | "legal" | "package" | "diagnostic">("workspace");
   const [mode, setMode] = useState<"local" | "hybrid" | "online">("local");
   const [hardware, setHardware] = useState<HardwareInfo | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [loadingChat, setLoadingChat] = useState(false);
+
+  // Diagnostic simulation states
+  const [isStressing, setIsStressing] = useState(false);
+  const [stressDuration, setStressDuration] = useState(60); // in seconds
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [cpuIntensity, setCpuIntensity] = useState(80);
+  const [gpuIntensity, setGpuIntensity] = useState(60);
+  const [stressPattern, setStressPattern] = useState<"constant" | "sine" | "burst" | "ramp">("constant");
+  const [balancingMode, setBalancingMode] = useState<"symmetric" | "core_bias" | "alternate">("symmetric");
+  const [gpuEngine, setGpuEngine] = useState<"vulkan" | "metal" | "cuda" | "cpu_fallback">("vulkan");
+  const [thermalThreshold, setThermalThreshold] = useState(85); // °C
+  const [diagnosticHistory, setDiagnosticHistory] = useState<any[]>([]);
+  const [diagnosticLogs, setDiagnosticLogs] = useState<string[]>([]);
+  const [coreLoads, setCoreLoads] = useState<number[]>(Array(8).fill(0));
   
   // Settings & Configuration
   const [perfMode, setPerfMode] = useState<"battery" | "balanced" | "performance" | "max">("balanced");
   const [activeModel, setActiveModel] = useState("Llama-3-8B-Instruct (Local)");
   const [telemetry, setTelemetry] = useState(false);
-  const [cloudBudgetLimit, setCloudBudgetLimit] = useState(56.19); // ap-south-1 credit pool
-  const [cloudSpendEst, setCloudSpendEst] = useState(0.0);
 
   // RAG Ingestion
   const [documents, setDocuments] = useState<RAGDocument[]>([]);
@@ -209,6 +231,178 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // Stress test simulation engine
+  useEffect(() => {
+    let interval: any = null;
+    if (isStressing) {
+      // Initialize or keep history
+      setElapsedTime(0);
+      setDiagnosticLogs([
+        `[${new Date().toLocaleTimeString()}] 🚀 Launching QEVRYN Core Stress Simulator...`,
+        `[${new Date().toLocaleTimeString()}] ⚙️ Engine: ${gpuEngine.toUpperCase()} Hardware Acceleration enabled.`,
+        `[${new Date().toLocaleTimeString()}] 🧠 Spawning core worker threads (Balance: ${balancingMode.toUpperCase()}).`,
+        `[${new Date().toLocaleTimeString()}] 🌡️ Thermal ceiling initialized at ${thermalThreshold}°C.`,
+      ]);
+
+      // Set initial sample
+      const initialHistory = [];
+      const startTemp = 38.5; // Starts cool
+      for (let i = 0; i < 5; i++) {
+        initialHistory.push({
+          second: i - 5,
+          cpuLoad: Math.round(3 + Math.random() * 4),
+          gpuLoad: Math.round(1 + Math.random() * 2),
+          temperature: Math.round(startTemp + (Math.random() * 1.5)),
+          thermalLimit: thermalThreshold,
+          throttlingIndex: 0,
+          fanSpeed: 20,
+        });
+      }
+      setDiagnosticHistory(initialHistory);
+
+      let currentTemp = startTemp;
+      let tick = 0;
+
+      interval = setInterval(() => {
+        tick++;
+        setElapsedTime(tick);
+
+        // Calculate dynamic loads based on pattern and tick
+        let baseCpu = cpuIntensity;
+        let baseGpu = gpuIntensity;
+
+        if (stressPattern === "sine") {
+          const factor = (Math.sin((tick * Math.PI) / 10) + 1) / 2; // 0 to 1
+          baseCpu = Math.round(cpuIntensity * factor);
+          baseGpu = Math.round(gpuIntensity * factor);
+        } else if (stressPattern === "burst") {
+          const isSpike = Math.floor(tick / 4) % 2 === 0;
+          baseCpu = isSpike ? cpuIntensity : 5;
+          baseGpu = isSpike ? gpuIntensity : 2;
+        } else if (stressPattern === "ramp") {
+          const progress = Math.min(1, tick / 20);
+          baseCpu = Math.round(cpuIntensity * progress);
+          baseGpu = Math.round(gpuIntensity * progress);
+        }
+
+        // Add small random noise
+        let actualCpu = Math.max(0, Math.min(100, Math.round(baseCpu + (Math.random() * 6 - 3))));
+        let actualGpu = Math.max(0, Math.min(100, Math.round(baseGpu + (Math.random() * 4 - 2))));
+
+        // Thermal Throttling calculation
+        let throttlingIdx = 0;
+        if (currentTemp > thermalThreshold) {
+          throttlingIdx = Math.round(Math.min(100, (currentTemp - thermalThreshold) * 7.5));
+        }
+
+        // Apply throttling to actual loads to limit performance
+        if (throttlingIdx > 0) {
+          actualCpu = Math.round(actualCpu * (1 - throttlingIdx / 150));
+          actualGpu = Math.round(actualGpu * (1 - throttlingIdx / 150));
+        }
+
+        // Calculate Heat output & Temperature dissipation
+        const totalLoad = (actualCpu + actualGpu) / 2;
+        const ambient = 25; 
+        
+        const heatingCoeff = 0.35;
+        const targetFanSpeed = Math.round(Math.min(100, Math.max(20, (currentTemp - 40) * 1.8)));
+        const coolingCoeff = 0.08 + (targetFanSpeed / 1000);
+
+        currentTemp = currentTemp + (totalLoad * heatingCoeff) - (coolingCoeff * (currentTemp - ambient));
+        currentTemp = Math.max(ambient, currentTemp);
+
+        // Individual Core Loads simulation
+        const coreCount = 8;
+        const cores = Array(coreCount).fill(0);
+        let balanceScore = 95;
+
+        if (balancingMode === "symmetric") {
+          const baseCoreLoad = actualCpu;
+          for (let c = 0; c < coreCount; c++) {
+            cores[c] = Math.max(0, Math.min(100, Math.round(baseCoreLoad + (Math.random() * 8 - 4))));
+          }
+          balanceScore = Math.round(98 - (Math.random() * 4));
+        } else if (balancingMode === "core_bias") {
+          const biasedTotal = actualCpu * coreCount;
+          const core0 = Math.min(100, Math.round(biasedTotal * 0.45));
+          const core1 = Math.min(100, Math.round(biasedTotal * 0.35));
+          const leftovers = Math.max(0, biasedTotal - core0 - core1);
+          const perOther = Math.round(leftovers / (coreCount - 2));
+          cores[0] = core0;
+          cores[1] = core1;
+          for (let c = 2; c < coreCount; c++) {
+            cores[c] = Math.max(0, Math.min(100, Math.round(perOther + (Math.random() * 4 - 2))));
+          }
+          balanceScore = Math.round(35 + (Math.random() * 8));
+        } else if (balancingMode === "alternate") {
+          const activeIndex1 = tick % coreCount;
+          const activeIndex2 = (tick + 3) % coreCount;
+          for (let c = 0; c < coreCount; c++) {
+            if (c === activeIndex1 || c === activeIndex2) {
+              cores[c] = Math.min(100, Math.round(actualCpu * 2.2));
+            } else {
+              cores[c] = Math.max(0, Math.min(100, Math.round(actualCpu * 0.3 + (Math.random() * 6 - 3))));
+            }
+          }
+          balanceScore = Math.round(65 + (Math.random() * 10));
+        }
+        setCoreLoads(cores);
+
+        // Append to history
+        setDiagnosticHistory((prev) => [
+          ...prev,
+          {
+            second: tick,
+            cpuLoad: actualCpu,
+            gpuLoad: actualGpu,
+            temperature: Math.round(currentTemp * 10) / 10,
+            thermalLimit: thermalThreshold,
+            throttlingIndex: throttlingIdx,
+            fanSpeed: targetFanSpeed,
+          }
+        ]);
+
+        // Append logs
+        const logEntries: string[] = [];
+        const timestamp = new Date().toLocaleTimeString();
+
+        if (tick === 1) {
+          logEntries.push(`[${timestamp}] 📈 Commencing stress pattern: ${stressPattern.toUpperCase()}`);
+        }
+        if (tick % 5 === 0) {
+          logEntries.push(`[${timestamp}] 🌡️ Telemetry: CPU ${actualCpu}%, GPU ${actualGpu}%, Temp ${currentTemp.toFixed(1)}°C`);
+        }
+        if (throttlingIdx > 0 && tick % 4 === 0) {
+          logEntries.push(`[${timestamp}] ⚠️ SILICON GOVERNOR engaged: ${throttlingIdx}% power throttling active.`);
+        }
+        if (tick === Math.round(stressDuration / 2)) {
+          logEntries.push(`[${timestamp}] ⏱️ Halfway checkpoint. Core performance balance index: ${balanceScore}%.`);
+        }
+
+        if (logEntries.length > 0) {
+          setDiagnosticLogs((prev) => [...prev, ...logEntries]);
+        }
+
+        // Check for complete
+        if (tick >= stressDuration) {
+          setIsStressing(false);
+          setDiagnosticLogs((prev) => [
+            ...prev,
+            `[${new Date().toLocaleTimeString()}] 🏁 Stress Test Completed. Coolant pump operating at maximum rate.`,
+            `[${new Date().toLocaleTimeString()}] 📊 Final Load Balance Score: ${balanceScore}% Efficiency.`
+          ]);
+          clearInterval(interval);
+        }
+
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isStressing, stressDuration, cpuIntensity, gpuIntensity, stressPattern, balancingMode, gpuEngine, thermalThreshold]);
 
   // Load initial settings and trigger scan
   useEffect(() => {
@@ -373,18 +567,42 @@ export default function App() {
         };
         setMessages((prev) => [...prev, assistantMsg]);
         
-        // Track AWS credits spend estimation if hybrid or online triggers API
-        if (mode !== "local") {
-          setCloudSpendEst((prev) => Number((prev + 0.00015).toFixed(5)));
-        }
       }
     } catch (error) {
+      // Graceful local client-side offline fallback
+      let fallbackText = "";
+      if (activeModel === "bro-core") {
+        fallbackText = `### 👊 QEVRYN Bro Core [CLIENT OFFLINE SANDBOX]
+Yo bro! It seems the port 3000 gateway is sleeping, but your client-side Bro Core is ALWAYS awake!
+
+Here is your companion response:
+1. Don't sweat the network connections, bro. We can still map out your ideas.
+2. Let me know what awesome feature you're cooking up next, my dude!
+
+*We are running in offline simulator mode.*`;
+      } else if (activeModel.toLowerCase().includes("image") || activeModel === "image-gen") {
+        fallbackText = `### 🎨 QEVRYN Image Core [CLIENT OFFLINE SANDBOX]
+The port 3000 gateway is unreachable, so I am simulating your generated workspace diagram locally in the browser.
+
+[🎨 Dynamic Offline CSS Diagram: ${aspectRatio || "1:1"} Aspect Ratio]
+*Activate the server connection to enable real Generative Images!*`;
+      } else {
+        fallbackText = `### 🛡️ QEVRYN Core Orchestrator [CLIENT OFFLINE SANDBOX]
+The backend port 3000 gateway is currently offline or unreachable. QEVRYN has automatically engaged the **Client-Side Hybrid Sandbox Fallback**.
+
+* **Connection Status**: ⚠️ Port 3000 Unreachable / Offline
+* **Client Core Active**: Dynamic UI Simulator Core
+* **Branding**: Built by Veeomdecoders
+
+I can still answer your questions using pre-compiled local knowledge bases. How can I help you design your macOS, Windows, or Linux offline workspace today?`;
+      }
+
       const assistantMsg: ChatMessage = {
         id: "asst_err_" + Date.now(),
         role: "assistant",
-        content: `### 🛑 Core Outflow Interruption\nFailed to dispatch prompt to QEVRYN Core locally or over port gateway. Verify that the server is active on Port 3000.\n\n*Error details: Offline or refused connection.*`,
+        content: fallbackText,
         timestamp: new Date().toLocaleTimeString(),
-        core: "Emergency Routing Core",
+        core: "Client Simulator Core",
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } finally {
@@ -755,9 +973,6 @@ export default function App() {
     setUploadedImage(null);
   };
 
-  // Budget calculations
-  const budgetPercentage = Math.min(100, Math.max(0, (cloudSpendEst / cloudBudgetLimit) * 100));
-
   return (
     <div className="min-h-screen bg-[#070708] text-[#f0f0f0] font-sans flex flex-col antialiased">
       {/* Main Workspace Frame */}
@@ -846,6 +1061,22 @@ export default function App() {
                 <FileText className="h-4 w-4 text-rose-400" />
                 <span>Trust Center (Legal)</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab("package")}
+                className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-3 cursor-pointer ${activeTab === "package" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"}`}
+              >
+                <Download className="h-4 w-4 text-[#e2ff00]" />
+                <span>M5 Package Builder</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("diagnostic")}
+                className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-3 cursor-pointer ${activeTab === "diagnostic" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"}`}
+              >
+                <Activity className="h-4 w-4 text-pink-400 font-bold" />
+                <span>Core Stress Diagnostic</span>
+              </button>
             </div>
 
             {/* Diagnostic Telemetry simple line */}
@@ -858,171 +1089,13 @@ export default function App() {
                 className="h-3.5 w-3.5 rounded bg-zinc-900 border-zinc-800 text-[#e2ff00] focus:ring-0 cursor-pointer accent-[#e2ff00]"
               />
             </div>
-
-            {/* Package Builder Widget Section */}
-            <div className="border-t border-zinc-800/60 pt-3 flex-1 flex flex-col justify-end">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 px-1 block mb-3">Package Builder</span>
-              
-              <div className="grid grid-cols-3 gap-1 px-1 mb-3">
-                <button
-                  onClick={() => { setTargetPlatform("macos"); setInstallerStatus("idle"); }}
-                  className={`py-1 px-1.5 rounded text-[10px] font-bold text-center transition-all cursor-pointer ${targetPlatform === "macos" ? "bg-[#e2ff00] text-black" : "bg-zinc-900 text-zinc-400 border border-zinc-850 hover:text-zinc-200"}`}
-                >
-                  macOS
-                </button>
-                <button
-                  onClick={() => { setTargetPlatform("windows"); setInstallerStatus("idle"); }}
-                  className={`py-1 px-1.5 rounded text-[10px] font-bold text-center transition-all cursor-pointer ${targetPlatform === "windows" ? "bg-[#e2ff00] text-black" : "bg-zinc-900 text-zinc-400 border border-zinc-850 hover:text-zinc-200"}`}
-                >
-                  Windows
-                </button>
-                <button
-                  onClick={() => { setTargetPlatform("linux"); setInstallerStatus("idle"); }}
-                  className={`py-1 px-1.5 rounded text-[10px] font-bold text-center transition-all cursor-pointer ${targetPlatform === "linux" ? "bg-[#e2ff00] text-black" : "bg-zinc-900 text-zinc-400 border border-zinc-850 hover:text-zinc-200"}`}
-                >
-                  Linux
-                </button>
-              </div>
-
-              {targetPlatform === "macos" ? (
-                /* DISTINCT TRANSLUCENT MACOS APP WINDOW BUILDER DESIGN */
-                <div className="rounded-xl bg-zinc-950/75 border border-zinc-800 p-3 shadow-2xl relative overflow-hidden backdrop-blur-md">
-                  {/* Traffic light window controls */}
-                  <div className="flex items-center space-x-1.5 mb-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56] shadow-[0_0_6px_rgba(255,95,86,0.3)]"></span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e] shadow-[0_0_6px_rgba(255,189,46,0.3)]"></span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f] shadow-[0_0_6px_rgba(39,201,63,0.3)]"></span>
-                    <span className="text-[8.5px] font-mono text-zinc-400 ml-1.5 font-bold tracking-tight">M5 Air Builder (.dmg)</span>
-                  </div>
-
-                  <div className="space-y-2.5 mt-2">
-                    <div>
-                      <label className="text-[9px] text-zinc-400 block mb-1 font-bold">Hardware Target</label>
-                      <select
-                        value={macArch}
-                        onChange={(e) => setMacArch(e.target.value as any)}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[9.5px] text-zinc-200 outline-none cursor-pointer hover:border-zinc-750"
-                      >
-                        <option value="m_series">Apple Silicon M5 (Optimized ARM64)</option>
-                        <option value="universal">Universal Binary (ARM64 + Intel)</option>
-                        <option value="intel">Legacy Intel (x86_64)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[9px] text-zinc-400 block mb-1 font-bold">Distribution Bundle</label>
-                      <select
-                        value={macFormat}
-                        onChange={(e) => setMacFormat(e.target.value as any)}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[9.5px] text-zinc-200 outline-none cursor-pointer hover:border-zinc-750"
-                      >
-                        <option value="dmg">Disk Image (.dmg)</option>
-                        <option value="app">App Bundle (.app)</option>
-                        <option value="pkg">Installer Package (.pkg)</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[9px] text-zinc-400 border-t border-zinc-800/50 pt-2 pb-0.5">
-                      <span>Neural Engine Cores:</span>
-                      <span className="text-[#e2ff00] font-mono font-bold uppercase">MPS Accelerated</span>
-                    </div>
-
-                    {installerStatus === "idle" && (
-                      <button
-                        onClick={handleSimulateInstallerBuild}
-                        className="w-full bg-white text-black hover:bg-zinc-200 text-[10px] font-extrabold py-2 rounded-lg transition-all mt-2.5 flex items-center justify-center space-x-1.5 cursor-pointer shadow-md"
-                      >
-                        <Download className="h-3 w-3 text-black" />
-                        <span>Build dmg for M5 Air</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {installerStatus === "building" && (
-                    <div className="space-y-2 mt-3">
-                      <div className="w-full bg-zinc-900 rounded-full h-1 overflow-hidden">
-                        <div className="bg-[#e2ff00] h-full transition-all duration-300" style={{ width: `${installerProgress}%` }}></div>
-                      </div>
-                      <span className="text-[9px] text-zinc-300 font-mono block text-center font-semibold">Compiling workspace... {installerProgress}%</span>
-                    </div>
-                  )}
-
-                  {installerStatus === "completed" && (
-                    <div className="mt-3 pt-3 border-t border-zinc-800/80 space-y-2 text-[9.5px] font-mono">
-                      <div className="text-emerald-400 flex items-center space-x-1">
-                        <Check className="h-3.5 w-3.5" />
-                        <span className="font-extrabold uppercase tracking-wide">Build Succeeded</span>
-                      </div>
-                      <span className="text-zinc-200 block truncate font-semibold">qevryn_v0.1_M5_Air.{macFormat}</span>
-                      <span className="text-[8px] text-zinc-500 block truncate">SHA256: {generatedChecksum.substring(0, 18)}...</span>
-                      <button
-                        onClick={() => setInstallerStatus("idle")}
-                        className="text-[#e2ff00] hover:underline block text-[9.5px] font-bold"
-                      >
-                        Build another package
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* STANDARD WINDOWS / LINUX STYLING */
-                <div className="rounded-lg bg-zinc-900/60 border border-zinc-800 p-3 space-y-3">
-                  <span className="text-[9px] font-mono text-zinc-500 block">Target: {targetPlatform === "windows" ? "Windows Setup" : "Linux AppImage"}</span>
-                  
-                  {installerStatus === "idle" && (
-                    <button
-                      onClick={handleSimulateInstallerBuild}
-                      className="w-full bg-zinc-800 hover:bg-zinc-750 text-white text-[10px] py-1.5 rounded border border-zinc-750 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer font-bold"
-                    >
-                      <Download className="h-3.5 w-3.5 text-[#e2ff00]" />
-                      <span>Compile Package</span>
-                    </button>
-                  )}
-
-                  {installerStatus === "building" && (
-                    <div className="space-y-1.5">
-                      <div className="w-full bg-zinc-950 rounded h-1 overflow-hidden">
-                        <div className="bg-[#e2ff00] h-full transition-all duration-300" style={{ width: `${installerProgress}%` }}></div>
-                      </div>
-                      <span className="text-[9px] text-zinc-400 font-mono block text-center font-semibold">Assembling binaries... {installerProgress}%</span>
-                    </div>
-                  )}
-
-                  {installerStatus === "completed" && (
-                    <div className="space-y-1.5 text-[9px] font-mono">
-                      <div className="flex items-center text-[#e2ff00] space-x-1">
-                        <Check className="h-3 w-3" />
-                        <span className="font-bold">Succeeded</span>
-                      </div>
-                      <span className="text-zinc-400 block truncate font-semibold">qevryn_v0.1_installer.{targetPlatform === "windows" ? "exe" : "AppImage"}</span>
-                      <span className="text-[8px] text-zinc-500 block truncate font-semibold font-mono">SHA-256: {generatedChecksum.substring(0, 18)}...</span>
-                      <button
-                        onClick={() => setInstallerStatus("idle")}
-                        className="text-[#e2ff00] hover:underline block font-bold"
-                      >
-                        Rebuild package
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Console build output logs when compiling */}
-              {installerStatus === "building" && buildLogs.length > 0 && (
-                <div className="mt-2.5 p-2 bg-black border border-zinc-900 rounded font-mono text-[8px] text-zinc-400 max-h-[105px] overflow-y-auto space-y-1">
-                  {buildLogs.map((log, idx) => (
-                    <div key={idx} className="truncate">{log}</div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         )}
 
         {/* Central Workspace Tabbed Area */}
         <div className="flex-1 flex flex-col bg-[#070708]">
-          {/* Workspace Top Bar (Sleek, ChatGPT / Claude style) */}
-          <div className="border-b border-zinc-800 bg-[#0c0c0e] px-6 py-3 flex items-center justify-between shadow-sm">
+          {/* Workspace Top Bar (Sleek QEVRYN Core Codec Panel) */}
+          <div className="border-b border-zinc-850 bg-[#09090b] px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-[0_1px_5px_rgba(0,0,0,0.4)]">
             <div className="flex items-center space-x-3">
               {!sidebarOpen && (
                 <button
@@ -1033,26 +1106,44 @@ export default function App() {
                   <Menu className="h-4 w-4" />
                 </button>
               )}
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-zinc-200 capitalize font-display">
-                  {activeTab === "workspace" ? "Chat Workspace" : activeTab === "sandbox" ? "Coding Sandbox" : activeTab === "rag" ? "Local RAG Store" : activeTab === "memory" ? "Personal Memory" : activeTab === "logs" ? "Security Logs" : "Trust Center"}
+              <div className="flex items-center space-x-2.5">
+                <span className="text-xs font-bold text-zinc-100 capitalize font-display">
+                  {activeTab === "workspace" ? "Chat Workspace" : activeTab === "sandbox" ? "Coding Sandbox" : activeTab === "rag" ? "Local RAG Store" : activeTab === "memory" ? "Personal Memory" : activeTab === "logs" ? "Security Logs" : activeTab === "package" ? "M5 Package Builder" : activeTab === "diagnostic" ? "Core Stress Diagnostic" : "Trust Center"}
                 </span>
-                <span className="text-[9px] bg-zinc-800/80 px-2 py-0.5 rounded-full font-mono font-semibold text-zinc-400 border border-zinc-700/40">
-                  {mode === "local" ? "🟢 Local First" : mode === "hybrid" ? "🌗 Hybrid" : "🌐 Online"}
+                <span className="text-[9px] bg-zinc-900 px-2 py-0.5 rounded font-mono font-bold text-[#e2ff00] border border-zinc-800 uppercase tracking-wider">
+                  {mode === "local" ? "LOCAL_ONLY" : mode === "hybrid" ? "HYBRID_METRIC" : "CLOUD_BYPASS"}
                 </span>
+              </div>
+
+              {/* Monospace Codec Signal Monitors */}
+              <div className="hidden lg:flex items-center space-x-4 font-mono text-[9px] text-zinc-500 border-l border-zinc-800 pl-4">
+                <div>
+                  <span className="text-zinc-600">DECODER:</span>{" "}
+                  <span className="text-zinc-300 font-bold">VEEOM_OS_V0.1</span>
+                </div>
+                <div>
+                  <span className="text-zinc-600">LATENCY:</span>{" "}
+                  <span className="text-zinc-300 font-bold">{mode === "local" ? "1.8 ms" : "142 ms"}</span>
+                </div>
+                <div>
+                  <span className="text-zinc-600">ACTIVE CORE:</span>{" "}
+                  <span className="text-[#e2ff00] font-bold">
+                    {messages[messages.length - 1]?.core ? messages[messages.length - 1].core.toUpperCase().replace(" CORE", "") : "READY"}
+                  </span>
+                </div>
               </div>
             </div>
 
             <div className="flex items-center space-x-3">
-              <span className="text-[10px] font-bold text-zinc-500 font-mono hidden sm:inline uppercase tracking-wider">Built by Veeomdecoders</span>
+              <span className="text-[10px] font-bold text-zinc-600 font-mono hidden md:inline uppercase tracking-wider">Built by Veeomdecoders</span>
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value as any)}
-                className="bg-zinc-900 text-xs font-semibold text-zinc-300 border border-zinc-800 px-3 py-1.5 rounded-lg outline-none cursor-pointer hover:border-zinc-750"
+                className="bg-black text-[#e2ff00] text-xs font-mono border border-zinc-800 px-3 py-1.5 rounded outline-none cursor-pointer hover:border-zinc-700 focus:border-[#e2ff00] transition-all"
               >
-                <option value="local">🟢 Local First</option>
-                <option value="hybrid">🌗 Hybrid Mode</option>
-                <option value="online">🌐 Online Mode</option>
+                <option value="local">🟢 STREAM: LOCAL ONLY</option>
+                <option value="hybrid">🌗 STREAM: HYBRID CODES</option>
+                <option value="online">🌐 STREAM: CLOUD BYPASS</option>
               </select>
             </div>
           </div>
@@ -1838,6 +1929,587 @@ export default function App() {
               </div>
             )}
 
+            {activeTab === "package" && (
+              <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8 bg-[#09090b]">
+                {/* Header */}
+                <div className="border-b border-zinc-850 pb-5">
+                  <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
+                    <Download className="h-5 w-5 text-[#e2ff00]" />
+                    <span>M5 Core Compiler & Package Builder</span>
+                  </h2>
+                  <p className="text-xs text-zinc-500 mt-1 max-w-2xl leading-relaxed">
+                    Compile and bundle your sandboxed workspace files into high-performance, self-contained offline desktop binary packages. Optimally compiled for M5 Apple Silicon, Windows, and Linux.
+                  </p>
+                </div>
+
+                {/* Dashboard Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                  
+                  {/* Left panel: platform settings */}
+                  <div className="space-y-6">
+                    <div className="bg-[#0c0c0f] border border-zinc-850 rounded-xl p-5 space-y-5 shadow-sm">
+                      <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider font-mono">1. Target Architecture & Environment</h3>
+                      
+                      {/* Platform Select Buttons */}
+                      <div>
+                        <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold block mb-2 font-mono">Select Destination OS</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            onClick={() => { setTargetPlatform("macos"); setInstallerStatus("idle"); }}
+                            className={`py-2.5 px-3 rounded-lg text-xs font-bold text-center transition-all cursor-pointer ${targetPlatform === "macos" ? "bg-[#e2ff00] text-black shadow-md shadow-[#e2ff00]/10" : "bg-zinc-950 border border-zinc-850 text-zinc-400 hover:text-zinc-200"}`}
+                          >
+                            macOS Sequoia
+                          </button>
+                          <button
+                            onClick={() => { setTargetPlatform("windows"); setInstallerStatus("idle"); }}
+                            className={`py-2.5 px-3 rounded-lg text-xs font-bold text-center transition-all cursor-pointer ${targetPlatform === "windows" ? "bg-[#e2ff00] text-black shadow-md shadow-[#e2ff00]/10" : "bg-zinc-950 border border-zinc-850 text-zinc-400 hover:text-zinc-200"}`}
+                          >
+                            Windows 11
+                          </button>
+                          <button
+                            onClick={() => { setTargetPlatform("linux"); setInstallerStatus("idle"); }}
+                            className={`py-2.5 px-3 rounded-lg text-xs font-bold text-center transition-all cursor-pointer ${targetPlatform === "linux" ? "bg-[#e2ff00] text-black shadow-md shadow-[#e2ff00]/10" : "bg-zinc-950 border border-zinc-850 text-zinc-400 hover:text-zinc-200"}`}
+                          >
+                            Linux Core
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* macOS Custom Form */}
+                      {targetPlatform === "macos" ? (
+                        <div className="space-y-4 pt-2 border-t border-zinc-850">
+                          {/* Translucent Window Graphic */}
+                          <div className="rounded-xl bg-zinc-950/90 border border-zinc-800 p-4.5 relative overflow-hidden backdrop-blur-md">
+                            <div className="flex items-center space-x-1.5 mb-4">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></span>
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></span>
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></span>
+                              <span className="text-[9px] font-mono text-zinc-500 ml-2 uppercase font-bold tracking-wider">macOS ARM64 Builder</span>
+                            </div>
+
+                            <div className="space-y-4">
+                              <div>
+                                <label className="text-[10px] text-zinc-400 block mb-1.5 font-bold">Hardware Optimization</label>
+                                <select
+                                  value={macArch}
+                                  onChange={(e) => setMacArch(e.target.value as any)}
+                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 outline-none cursor-pointer hover:border-zinc-700 font-mono"
+                                >
+                                  <option value="m_series">Apple Silicon M5 (Optimized ARM64)</option>
+                                  <option value="universal">Universal Binary (ARM64 + Intel)</option>
+                                  <option value="intel">Legacy Intel Architecture (x86_64)</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="text-[10px] text-zinc-400 block mb-1.5 font-bold">Distribution Bundle Format</label>
+                                <select
+                                  value={macFormat}
+                                  onChange={(e) => setMacFormat(e.target.value as any)}
+                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 outline-none cursor-pointer hover:border-zinc-700 font-mono"
+                                >
+                                  <option value="dmg">Disk Image (.dmg)</option>
+                                  <option value="app">App Bundle (.app)</option>
+                                  <option value="pkg">Installer Package (.pkg)</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="text-[10px] text-zinc-400 block mb-1.5 font-bold">App Code Signing Method</label>
+                                <select
+                                  value={macSigning}
+                                  onChange={(e) => setMacSigning(e.target.value as any)}
+                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 outline-none cursor-pointer hover:border-zinc-700 font-mono"
+                                >
+                                  <option value="notarized">Official Apple Notarization (Secured)</option>
+                                  <option value="ad_hoc">Ad-hoc / Self-Signed Local Only</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="text-[10px] text-zinc-400 block mb-1.5 font-bold">Neural Engine / Metal GPU Backend</label>
+                                <select
+                                  value={macAccel}
+                                  onChange={(e) => setMacAccel(e.target.value as any)}
+                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 outline-none cursor-pointer hover:border-zinc-700 font-mono"
+                                >
+                                  <option value="metal">Metal Performance Shaders (MPS + ANE)</option>
+                                  <option value="cpu">Standard CPU Multi-threading</option>
+                                </select>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-800 pt-3 pb-0.5">
+                                <span className="font-mono">Mac Hardware Target:</span>
+                                <span className="text-[#e2ff00] font-mono font-bold">M5 Air / Pro Fully Supported</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4 pt-2 border-t border-zinc-850">
+                          <div className="rounded-xl bg-zinc-950 p-4.5 space-y-4">
+                            <span className="text-[10px] font-mono text-zinc-500 block uppercase tracking-wider">Compile Configuration</span>
+                            
+                            <div>
+                              <label className="text-[10px] text-zinc-400 block mb-1.5 font-bold">Binary Setup Compression</label>
+                              <select className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 outline-none cursor-pointer hover:border-zinc-700 font-mono">
+                                <option value="lzma">LZMA Solid Compression (Highest Ratio)</option>
+                                <option value="standard">Standard ZIP Archive</option>
+                                <option value="none">Raw Binary Folder</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-zinc-400 block mb-1.5 font-bold">Active Driver / CUDA Core API</label>
+                              <select className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 outline-none cursor-pointer hover:border-zinc-700 font-mono">
+                                <option value="cuda">NVIDIA CUDA SDK (Fastest)</option>
+                                <option value="directml">DirectML / Vulcan Compute</option>
+                                <option value="cpu">Standard CPU Backend</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Build Launcher Button */}
+                      {installerStatus === "idle" && (
+                        <button
+                          onClick={handleSimulateInstallerBuild}
+                          className="w-full bg-white hover:bg-zinc-200 text-black text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-white/5 font-mono uppercase tracking-wider"
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>Generate Installer Package</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right panel: build logs */}
+                  <div className="space-y-6">
+                    <div className="bg-[#0c0c0f] border border-zinc-850 rounded-xl p-5 space-y-4 shadow-sm h-full flex flex-col justify-between">
+                      <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider font-mono">2. Compilation Feed & Log Stream</h3>
+
+                      {installerStatus === "idle" && (
+                        <div className="flex-1 flex flex-col items-center justify-center py-16 text-center text-zinc-500 border border-dashed border-zinc-800 rounded-lg">
+                          <Terminal className="h-8 w-8 text-zinc-700 mb-2" />
+                          <p className="text-xs font-mono">NO ACTIVE BUILD COMPILATION RUNNING</p>
+                          <p className="text-[10px] mt-1 text-zinc-600">Configure parameters and launch compilation to capture standard out.</p>
+                        </div>
+                      )}
+
+                      {installerStatus === "building" && (
+                        <div className="space-y-4 flex-1">
+                          <div className="space-y-2">
+                            <div className="w-full bg-zinc-950 rounded-full h-2 overflow-hidden border border-zinc-800">
+                              <div className="bg-[#e2ff00] h-full transition-all duration-300 shadow-[0_0_8px_#e2ff00]" style={{ width: `${installerProgress}%` }}></div>
+                            </div>
+                            <div className="flex justify-between text-[10px] font-mono text-zinc-400">
+                              <span>COMPILING FILESYSTEM</span>
+                              <span className="font-bold">{installerProgress}% Complete</span>
+                            </div>
+                          </div>
+
+                          {/* Live Mono Console Terminal */}
+                          <div className="p-4 bg-black border border-zinc-800 rounded-lg font-mono text-[10px] text-zinc-400 h-64 overflow-y-auto space-y-1.5 shadow-inner">
+                            {buildLogs.map((log, idx) => (
+                              <div key={idx} className="flex items-start gap-1.5">
+                                <span className="text-[#e2ff00] font-bold shrink-0">&gt;</span>
+                                <span className="break-all">{log}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {installerStatus === "completed" && (
+                        <div className="space-y-5 flex-1 pt-2">
+                          <div className="p-4 bg-emerald-950/20 border border-emerald-800/40 rounded-lg space-y-3">
+                            <div className="text-emerald-400 flex items-center gap-2">
+                              <Check className="h-5 w-5 bg-emerald-950 p-1 rounded-full border border-emerald-800" />
+                              <span className="font-mono font-bold uppercase tracking-wider">COMPILATION SUCCESSFUL</span>
+                            </div>
+                            
+                            <div className="font-mono text-xs text-zinc-300 space-y-2 pt-1 border-t border-zinc-800/40 font-mono">
+                              <div>
+                                <span className="text-zinc-500">FILENAME:</span>{" "}
+                                <span className="text-[#e2ff00] font-bold">
+                                  {targetPlatform === "macos" ? `qevryn_v0.1_M5_Air.${macFormat}` : `qevryn_v0.1_installer.${targetPlatform === "windows" ? "exe" : "AppImage"}`}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-500">CHECKSUM:</span>{" "}
+                                <span className="text-zinc-200 text-[10px] select-all break-all">{generatedChecksum}</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-500">FILE SIZE:</span>{" "}
+                                <span className="text-zinc-200">182.4 MB (Standalone)</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-500">ACCELERATOR:</span>{" "}
+                                <span className="text-zinc-200 font-bold uppercase">{targetPlatform === "macos" ? macAccel : "CUDA Core API"}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => setInstallerStatus("idle")}
+                            className="text-xs text-[#e2ff00] hover:underline font-bold font-mono uppercase block"
+                          >
+                            &larr; Compile Another Package
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+            {activeTab === "diagnostic" && (
+              <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8 bg-[#09090b]">
+                {/* Header */}
+                <div className="border-b border-zinc-850 pb-5">
+                  <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-pink-400 font-bold" />
+                    <span>Silicon Thermal & Throttling Diagnostic</span>
+                  </h2>
+                  <p className="text-xs text-zinc-500 mt-1 max-w-2xl leading-relaxed font-mono">
+                    Perform a real-time, simulated multi-threaded stress test on CPU and GPU cores. Evaluate architectural load balancing, thermal throttling safeguards, and active fan speed curves.
+                  </p>
+                </div>
+
+                {/* Main Content Area */}
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                  
+                  {/* Left Column (xl:span-5) - Controls */}
+                  <div className="xl:col-span-5 space-y-6">
+                    <div className="bg-[#0c0c0f] border border-zinc-850 rounded-xl p-5 space-y-6 shadow-sm">
+                      <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider font-mono flex items-center gap-1.5">
+                        <Cpu className="h-3.5 w-3.5 text-[#e2ff00]" />
+                        <span>Stress Vector Configuration</span>
+                      </h3>
+
+                      {/* CPU Target Intensity */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs font-mono">
+                          <span className="text-zinc-400 font-bold">TARGET CPU STRESS LOAD</span>
+                          <span className="text-[#38bdf8] font-bold">{cpuIntensity}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="100"
+                          step="5"
+                          value={cpuIntensity}
+                          disabled={isStressing}
+                          onChange={(e) => setCpuIntensity(Number(e.target.value))}
+                          className="w-full accent-[#38bdf8] bg-zinc-900 cursor-pointer disabled:opacity-50"
+                        />
+                      </div>
+
+                      {/* GPU Target Intensity */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs font-mono">
+                          <span className="text-zinc-400 font-bold">TARGET GPU STRESS LOAD</span>
+                          <span className="text-pink-400 font-bold">{gpuIntensity}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={gpuIntensity}
+                          disabled={isStressing}
+                          onChange={(e) => setGpuIntensity(Number(e.target.value))}
+                          className="w-full accent-pink-500 bg-zinc-900 cursor-pointer disabled:opacity-50"
+                        />
+                      </div>
+
+                      {/* Thermal Ceiling Limit */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs font-mono">
+                          <span className="text-zinc-400 font-bold">THERMAL PROTECTION CRITICAL CEILING</span>
+                          <span className="text-rose-400 font-bold">{thermalThreshold}°C</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="70"
+                          max="98"
+                          step="1"
+                          value={thermalThreshold}
+                          disabled={isStressing}
+                          onChange={(e) => setThermalThreshold(Number(e.target.value))}
+                          className="w-full accent-rose-500 bg-zinc-900 cursor-pointer disabled:opacity-50"
+                        />
+                        <p className="text-[10px] text-zinc-500 font-mono leading-relaxed">
+                          Once substrate exceeds this critical limit, the hardware governor activates <strong>Active Dynamic Voltage Frequency Scaling (DVFS)</strong> throttling.
+                        </p>
+                      </div>
+
+                      {/* Other drop downs in a 2x2 grid */}
+                      <div className="grid grid-cols-2 gap-4 pt-2 border-t border-zinc-850">
+                        
+                        <div>
+                          <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold block mb-1.5 font-mono">Load Pattern</label>
+                          <select
+                            value={stressPattern}
+                            disabled={isStressing}
+                            onChange={(e) => setStressPattern(e.target.value as any)}
+                            className="w-full bg-zinc-950 border border-zinc-850 rounded-lg px-2.5 py-2 text-xs text-zinc-200 outline-none cursor-pointer hover:border-zinc-700 font-mono"
+                          >
+                            <option value="constant">Constant Intensity</option>
+                            <option value="sine">Sine Wave Oscillation</option>
+                            <option value="burst">Spike / Bursty Pulse</option>
+                            <option value="ramp">Gradual Ramp Increase</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold block mb-1.5 font-mono">Core Load Balancing</label>
+                          <select
+                            value={balancingMode}
+                            disabled={isStressing}
+                            onChange={(e) => setBalancingMode(e.target.value as any)}
+                            className="w-full bg-zinc-950 border border-zinc-850 rounded-lg px-2.5 py-2 text-xs text-zinc-200 outline-none cursor-pointer hover:border-zinc-700 font-mono"
+                          >
+                            <option value="symmetric">Symmetric Distribution</option>
+                            <option value="core_bias">Asymmetric Single Bias</option>
+                            <option value="alternate">Alternate Core Spikes</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold block mb-1.5 font-mono">GPU Engine API</label>
+                          <select
+                            value={gpuEngine}
+                            disabled={isStressing}
+                            onChange={(e) => setGpuEngine(e.target.value as any)}
+                            className="w-full bg-zinc-950 border border-zinc-850 rounded-lg px-2.5 py-2 text-xs text-zinc-200 outline-none cursor-pointer hover:border-zinc-700 font-mono"
+                          >
+                            <option value="vulkan">Vulkan Core (Cross-Platform)</option>
+                            <option value="metal">Apple Metal Framework</option>
+                            <option value="cuda">NVIDIA CUDA Pipeline</option>
+                            <option value="cpu_fallback">CPU Software Fallback</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold block mb-1.5 font-mono">Test Duration</label>
+                          <select
+                            value={stressDuration}
+                            disabled={isStressing}
+                            onChange={(e) => setStressDuration(Number(e.target.value))}
+                            className="w-full bg-zinc-950 border border-zinc-850 rounded-lg px-2.5 py-2 text-xs text-zinc-200 outline-none cursor-pointer hover:border-zinc-700 font-mono"
+                          >
+                            <option value="15">15 Seconds (Quick scan)</option>
+                            <option value="30">30 Seconds (Standard test)</option>
+                            <option value="60">1 Minute (Thermal stability)</option>
+                            <option value="120">2 Minutes (Substrate soak)</option>
+                            <option value="300">5 Minutes (Extensive burn-in)</option>
+                          </select>
+                        </div>
+
+                      </div>
+
+                      {/* Trigger Buttons */}
+                      <div className="pt-2">
+                        {!isStressing ? (
+                          <button
+                            onClick={() => setIsStressing(true)}
+                            className="w-full bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-pink-500/10 font-mono uppercase tracking-wider"
+                          >
+                            <Flame className="h-4 w-4 animate-pulse" />
+                            <span>Ignite Diagnostic Stress Test</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setIsStressing(false)}
+                            className="w-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer font-mono uppercase tracking-wider"
+                          >
+                            <X className="h-4 w-4" />
+                            <span>Abort Stress Test ({elapsedTime}s / {stressDuration}s)</span>
+                          </button>
+                        )}
+                      </div>
+
+                    </div>
+
+                    {/* Left Column Bottom - Core Load Balancing Matrix */}
+                    <div className="bg-[#0c0c0f] border border-zinc-850 rounded-xl p-5 space-y-4 shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-bold uppercase text-zinc-400 tracking-wider font-mono">Individual Core Telemetry</h4>
+                        <span className="text-[10px] font-mono font-bold bg-zinc-900 border border-zinc-800 text-[#e2ff00] px-2 py-0.5 rounded">
+                          {balancingMode.toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2.5">
+                        {coreLoads.map((load, idx) => (
+                          <div key={idx} className="bg-zinc-950 border border-zinc-900 rounded-lg p-2 flex flex-col items-center justify-between h-20 relative overflow-hidden">
+                            <span className="text-[9px] font-mono text-zinc-500 font-bold">CORE_{idx}</span>
+                            
+                            {/* Animated indicator bar */}
+                            <div className="w-full bg-zinc-900 h-1 rounded overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-300 ${load > 85 ? "bg-red-500" : load > 60 ? "bg-[#e2ff00]" : "bg-sky-400"}`} 
+                                style={{ width: `${load}%` }}
+                              />
+                            </div>
+                            
+                            <span className="text-[10px] font-mono font-bold text-zinc-300">{load}%</span>
+                            
+                            {/* Subtle core pulse ring */}
+                            {isStressing && load > 10 && (
+                              <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Right Column (xl:span-7) - Visualizations & Charts */}
+                  <div className="xl:col-span-7 space-y-6">
+                    
+                    {/* Thermal & Dynamic Safe State */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      
+                      {/* Thermal Status Panel */}
+                      <div className={`border rounded-xl p-4 flex flex-col justify-between h-28 transition-all ${
+                        !isStressing 
+                          ? "bg-[#0c0c0f] border-zinc-850 text-zinc-400" 
+                          : diagnosticHistory[diagnosticHistory.length - 1]?.throttlingIndex > 0
+                            ? "bg-red-950/10 border-red-900/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.05)] animate-pulse"
+                            : diagnosticHistory[diagnosticHistory.length - 1]?.temperature > (thermalThreshold - 10)
+                              ? "bg-yellow-950/10 border-yellow-800/40 text-yellow-400"
+                              : "bg-emerald-950/10 border-emerald-900/30 text-emerald-400"
+                      }`}>
+                        <div className="flex justify-between items-start">
+                          <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-zinc-400">Thermal State Safeguard</span>
+                          <span className="text-[9px] font-mono bg-black px-2 py-0.5 rounded border border-zinc-800 uppercase font-extrabold tracking-widest">
+                            {!isStressing 
+                              ? "IDLE" 
+                              : diagnosticHistory[diagnosticHistory.length - 1]?.throttlingIndex > 0
+                                ? "Gov-Active"
+                                : "Cooling-Nominal"
+                            }
+                          </span>
+                        </div>
+
+                        <div className="py-2">
+                          <div className="text-sm font-display font-extrabold flex items-baseline gap-1">
+                            {!isStressing ? (
+                              <span className="text-zinc-500">Idle / Ready</span>
+                            ) : diagnosticHistory[diagnosticHistory.length - 1]?.throttlingIndex > 0 ? (
+                              <span className="text-red-400 font-bold">🚨 THERMAL LIMIT REACHED</span>
+                            ) : (
+                              <span className="text-emerald-400 font-bold">✅ SAFE THERMAL COEF</span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                            {!isStressing 
+                              ? "Awaiting execution sequence trigger" 
+                              : diagnosticHistory[diagnosticHistory.length - 1]?.throttlingIndex > 0
+                                ? "Core clock speed capped dynamically to avoid substrate breakdown."
+                                : "Core operational temps inside target design envelope."
+                            }
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Load Balancing Index */}
+                      <div className="bg-[#0c0c0f] border border-zinc-850 rounded-xl p-4 flex flex-col justify-between h-28">
+                        <div className="flex justify-between items-start">
+                          <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-zinc-400">Load Balancing Efficiency</span>
+                          <span className="text-[9px] font-mono font-bold text-sky-400">DVFS BALANCED</span>
+                        </div>
+
+                        <div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-2xl font-display font-black text-white">
+                              {!isStressing ? "100" : balancingMode === "symmetric" ? "98" : balancingMode === "core_bias" ? "38" : "68"}
+                            </span>
+                            <span className="text-xs text-zinc-500 font-mono">% Efficiency</span>
+                          </div>
+                          
+                          {/* Progress bar */}
+                          <div className="w-full bg-zinc-950 h-1.5 rounded-full mt-2 overflow-hidden border border-zinc-900">
+                            <div 
+                              className="h-full bg-sky-400 transition-all duration-300" 
+                              style={{ width: !isStressing ? "100%" : balancingMode === "symmetric" ? "98%" : balancingMode === "core_bias" ? "38%" : "68%" }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Chart Container - Visualizing Throttling & Load balancing */}
+                    <div className="bg-[#0c0c0f] border border-zinc-850 rounded-xl p-5 shadow-sm space-y-4">
+                      <div className="flex flex-wrap justify-between items-center gap-2 border-b border-zinc-850 pb-3">
+                        <h4 className="text-xs font-bold uppercase text-zinc-400 tracking-wider font-mono">Dynamic Telemetry Stream (Line Chart)</h4>
+                        <div className="flex items-center gap-3 font-mono text-[9px]">
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#e2ff00]" /> Temp</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#38bdf8]" /> CPU</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ec4899]" /> GPU</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ef4444]" /> Throttle</span>
+                        </div>
+                      </div>
+
+                      <div className="h-64 w-full flex items-center justify-center">
+                        {diagnosticHistory.length === 0 ? (
+                          <div className="text-center text-zinc-500 font-mono text-xs">
+                            <Activity className="h-8 w-8 text-zinc-700 mx-auto mb-2 opacity-50" />
+                            <span>NO TELEMETRY RECORDED</span>
+                          </div>
+                        ) : (
+                          <div className="w-full h-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={diagnosticHistory} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#161619" />
+                                <XAxis dataKey="second" stroke="#3f3f46" fontSize={9} tickLine={false} />
+                                <YAxis stroke="#3f3f46" fontSize={9} tickLine={false} domain={[0, 105]} />
+                                <Tooltip 
+                                  contentStyle={{ backgroundColor: "#09090b", borderColor: "#27272a", borderRadius: "8px", fontSize: "11px" }}
+                                  labelFormatter={(label) => `Second ${label}`}
+                                />
+                                <Line type="monotone" dataKey="temperature" name="Temp (°C)" stroke="#e2ff00" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                                <Line type="monotone" dataKey="cpuLoad" name="CPU (%)" stroke="#38bdf8" strokeWidth={1.5} dot={false} />
+                                <Line type="monotone" dataKey="gpuLoad" name="GPU (%)" stroke="#ec4899" strokeWidth={1.5} dot={false} />
+                                <Line type="monotone" dataKey="throttlingIndex" name="Throttle (%)" stroke="#ef4444" strokeWidth={2} strokeDasharray="3 3" dot={false} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Telemetry log stream */}
+                    <div className="bg-[#0c0c0f] border border-zinc-850 rounded-xl p-5 shadow-sm space-y-3">
+                      <h4 className="text-xs font-bold uppercase text-zinc-400 tracking-wider font-mono">Live Hardware Logging Feed</h4>
+                      
+                      <div className="p-4 bg-black border border-zinc-900 rounded-lg font-mono text-[10px] text-zinc-400 h-32 overflow-y-auto space-y-1 shadow-inner">
+                        {diagnosticLogs.length === 0 ? (
+                          <span className="text-zinc-600 italic">Core stress diagnostic log stream empty. Awaiting test launch...</span>
+                        ) : (
+                          diagnosticLogs.map((log, idx) => (
+                            <div key={idx} className="flex items-start gap-2 text-[10px] font-mono leading-relaxed">
+                              <span className="text-pink-500 font-bold shrink-0">&gt;&gt;</span>
+                              <span className="break-all text-zinc-300">{log}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+              </div>
+            )}
+
           </div>
 
           {/* Persistent global hardware diagnostic ribbon */}
@@ -1855,8 +2527,8 @@ export default function App() {
               </div>
               <div className="flex items-center space-x-4">
                 <span className="flex items-center space-x-1 text-slate-400">
-                  <BatteryCharging className="h-4 w-4 text-[#e2ff00]" />
-                  <span>Battery: {hardware.batteryState.level} ({hardware.batteryState.charging ? "Charging" : "Discharging"})</span>
+                  <Cpu className="h-4 w-4 text-[#e2ff00]" />
+                  <span>Battery: {hardware.batteryState.level}</span>
                 </span>
                 <span>•</span>
                 <span className="text-slate-500">Thermal: {hardware.thermalState}</span>
